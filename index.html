@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Point on a Line Quiz</title>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 24px; }
+    h1 { text-align: center; }
+    .question { font-size: 1.2em; margin-bottom: 16px; }
+    .btn { padding: 10px 20px; margin: 8px; border: none; border-radius: 4px; background: #0078d4; color: #fff; cursor: pointer; font-size: 1em; }
+    .btn:hover { background: #005fa3; }
+    .expander { margin-top: 24px; }
+    summary { font-weight: bold; font-size: 1.1em; cursor: pointer; }
+    canvas { background: #fff; border: 1px solid #ccc; margin-top: 16px; display: block; margin-left: auto; margin-right: auto; }
+  .steps { margin-top: 16px; background: #f0f0f0; padding: 12px; border-radius: 6px; word-break: break-word; overflow-x: auto; }
+  #latexSteps { display: block; white-space: normal; word-break: break-word; }
+    .answer { font-size: 1.1em; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Point on a Line Quiz</h1>
+    <div class="question" id="question"></div>
+  <!-- Removed Yes/No buttons -->
+    <button class="btn" id="newBtn" style="float:right;">Another Question</button>
+    <details class="expander" id="expander" style="margin-top:32px;">
+      <summary>Show Answer & Solution</summary>
+      <div id="answerBox"></div>
+      <canvas id="graph" width="400" height="400"></canvas>
+      <div class="steps" id="steps"></div>
+    </details>
+  </div>
+  <script>
+    // Utility functions
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    function getRandomFloat(min, max, decimals=1) {
+      const val = Math.random() * (max - min) + min;
+      return parseFloat(val.toFixed(decimals));
+    }
+    // Generate random question
+    let point, m, b, lineEqn, isOnLine;
+    function generateQuestion() {
+      // Random line: m in [-3,3] (avoid 0 for variety), b in [-10,10]
+  m = getRandomInt(-3, 3);
+  if (m === 0) m = 1; // avoid zero slope
+      b = getRandomInt(-10, 10);
+      lineEqn = `y = ${m}x ${b >= 0 ? "+" : "-"} ${Math.abs(b)}`;
+      // Decide if point should be on the line (50% chance)
+      const onLine = Math.random() < 0.5;
+      if (onLine) {
+        // Point is on the line, both x and y are integers within -10 to 10
+        let x, y;
+        do {
+          x = getRandomInt(-10, 10);
+          y = Math.round(m * x + b);
+        } while (y < -10 || y > 10);
+        point = { x, y };
+        isOnLine = true;
+      } else {
+        // Point is NOT on the line, both x and y are integers within -10 to 10
+        let x, y;
+        let tries = 0;
+        do {
+          x = getRandomInt(-10, 10);
+          y = getRandomInt(-10, 10);
+          tries++;
+        } while (y === Math.round(m * x + b) && tries < 100);
+        // If after 100 tries we still get a point on the line, forcibly offset y
+        if (y === Math.round(m * x + b)) {
+          y = (y < 10) ? y + 1 : y - 1;
+        }
+        point = { x, y };
+        isOnLine = false;
+      }
+      // Update UI
+      document.getElementById('question').innerHTML = `Is the point <strong>(${point.x}, ${point.y})</strong> on the line <strong>${lineEqn}</strong>?`;
+      document.getElementById('expander').open = false;
+      document.getElementById('answerBox').innerHTML = '';
+      document.getElementById('steps').innerHTML = '';
+      drawGraph();
+    }
+    // Draw graph
+    function drawGraph() {
+      const canvas = document.getElementById('graph');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Grid settings
+      const size = 400, range = 10, step = 1;
+      const origin = { x: size/2, y: size/2 };
+      const scale = size/(2*range);
+      // Draw gridlines
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 1;
+      for (let i = -range; i <= range; i++) {
+        // Vertical
+        ctx.beginPath();
+        ctx.moveTo(origin.x + i*scale, 0);
+        ctx.lineTo(origin.x + i*scale, size);
+        ctx.stroke();
+        // Horizontal
+        ctx.beginPath();
+        ctx.moveTo(0, origin.y - i*scale);
+        ctx.lineTo(size, origin.y - i*scale);
+        ctx.stroke();
+      }
+      // Axes
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      // x-axis
+      ctx.beginPath();
+      ctx.moveTo(0, origin.y);
+      ctx.lineTo(size, origin.y);
+      ctx.stroke();
+      // y-axis
+      ctx.beginPath();
+      ctx.moveTo(origin.x, 0);
+      ctx.lineTo(origin.x, size);
+      ctx.stroke();
+      // Axis labels
+      ctx.fillStyle = '#333';
+      ctx.font = '12px Arial';
+      ctx.fillText('x', size-18, origin.y-6);
+      ctx.fillText('y', origin.x+6, 14);
+      // Draw line
+      ctx.strokeStyle = '#0078d4';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let px = -range; px <= range; px += 0.1) {
+        const py = m * px + b;
+        if (px === -range) {
+          ctx.moveTo(origin.x + px*scale, origin.y - py*scale);
+        } else {
+          ctx.lineTo(origin.x + px*scale, origin.y - py*scale);
+        }
+      }
+      ctx.stroke();
+      // Draw point
+      ctx.fillStyle = isOnLine ? '#43a047' : '#e53935'; // green if on line, else red
+      ctx.beginPath();
+      ctx.arc(origin.x + point.x*scale, origin.y - point.y*scale, 7, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // Point label
+      ctx.fillStyle = isOnLine ? '#43a047' : '#e53935';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText(`(${point.x}, ${point.y})`, origin.x + point.x*scale + 10, origin.y - point.y*scale - 10);
+    }
+    // Show answer and solution
+    function showAnswer() {
+      // Do NOT open the expander box automatically
+      document.getElementById('expander').open = false;
+      const answerText = isOnLine ? 'Yes, the point is on the line.' : 'No, the point is not on the line.';
+      document.getElementById('answerBox').innerHTML = `<div class="answer"><strong>${answerText}</strong></div>`;
+      // Simple steps in LaTeX
+      const stepsLatex = `y = ${m}x ${b >= 0 ? '+' : '-'} ${Math.abs(b)} \\
+    y = ${m} \\times ${point.x} ${b >= 0 ? '+' : '-'} ${Math.abs(b)} \\
+    y = ${(m*point.x)} ${b >= 0 ? '+' : '-'} ${Math.abs(b)} \\
+    y = ${(m*point.x + b)} \\
+    y = ${point.y}`;
+      document.getElementById('steps').innerHTML = `<span>Steps:</span><br><span id="latexSteps">$$${stepsLatex}$$</span>`;
+      if (window.MathJax) MathJax.typesetPromise([document.getElementById('steps')]);
+    }
+    // Event listeners
+  // Show answer automatically
+  // ...existing code...
+    document.getElementById('newBtn').onclick = () => {
+      generateQuestion();
+      // Always keep expander collapsed for new question
+      document.getElementById('expander').open = false;
+      showAnswer();
+    };
+    // Initial question
+    generateQuestion();
+    // Keep expander collapsed on load
+    document.getElementById('expander').open = false;
+    showAnswer();
+  </script>
+</body>
+</html>
